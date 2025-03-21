@@ -1,12 +1,9 @@
-const db = require("../models");
-const config = require("../config/auth.config");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-
-const User = db.user;
-const Role = db.role;
-const RefreshToken = db.refreshToken;
-const Op = db.Sequelize.Op;
+const User = require("../models/user.model");
+const Role = require("../models/role.model");
+const RefreshToken = require("../models/refreshToken.model");
+const config = require("../config/auth.config");
 
 // Helper function to generate a unique token ID
 const generateUniqueTokenId = () => {
@@ -16,12 +13,12 @@ const generateUniqueTokenId = () => {
 // Helper function to generate a refresh token using JWT
 const generateRefreshTokenJWT = (user) => {
   return jwt.sign(
-    { id: user.id, tokenId: generateUniqueTokenId() }, // Payload contains user ID and a unique token ID
+    { id: user._id, tokenId: generateUniqueTokenId() }, // Payload contains user ID and a unique token ID
     config.refreshTokenSecret,
     {
       expiresIn: config.jwtRefreshExpiration, // Refresh token expiration time
       algorithm: "HS256", // Secure signing algorithm
-      allowInsecureKeySizes: true, // For development only; disable in production
+      allowInsecureKeySizes: true, // For development only
     }
   );
 };
@@ -36,7 +33,7 @@ exports.signup = async (req, res) => {
     console.log("req.body", req.body);
 
     // Create a new user with hashed password
-    const user = await User.create({
+    const user = new User({
       username: req.body.email,
       email: req.body.email,
       password: bcrypt.hashSync(req.body.password, 8),
@@ -44,14 +41,14 @@ exports.signup = async (req, res) => {
 
     // Assign roles if provided, otherwise assign default role
     if (req.body.roles) {
-      const roles = await Role.findAll({
-        where: { name: { [Op.or]: req.body.roles } },
-      });
-      await user.setRoles(roles);
+      const roles = await Role.find({ name: { $in: req.body.roles } });
+      user.roles = roles.map((role) => role._id);
     } else {
-      await user.setRoles([1]); // Default role ID (assuming 1 is the default)
+      const defaultRole = await Role.findOne({ name: "user" });
+      user.roles = [defaultRole._id];
     }
 
+    await user.save();
     res.status(201).send({ message: "User was registered successfully!" });
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -66,7 +63,9 @@ exports.signup = async (req, res) => {
 exports.signin = async (req, res) => {
   try {
     // Find user by email
-    const user = await User.findOne({ where: { username: req.body.email } });
+    const user = await User.findOne({ email: req.body.email }).populate(
+      "roles"
+    );
 
     if (!user) {
       return res.status(404).send({ message: "User Not Found." });
@@ -84,26 +83,29 @@ exports.signin = async (req, res) => {
     }
 
     // Generate Access Token
-    const accessToken = jwt.sign({ id: user.id }, config.secret, {
+    const accessToken = jwt.sign({ id: user._id }, config.secret, {
       expiresIn: config.jwtAccessExpiration, // Access token expiration
       algorithm: "HS256",
       allowInsecureKeySizes: true, // For development only
     });
 
     // Generate and store Refresh Token
-    const refreshToken = await RefreshToken.create({
+    const refreshToken = new RefreshToken({
       token: generateRefreshTokenJWT(user),
-      userId: user.id,
+      user: user._id,
       expiryDate: new Date(Date.now() + config.jwtRefreshExpiration * 1000),
     });
 
+    await refreshToken.save();
+
     // Get user roles
-    const roles = await user.getRoles();
-    const authorities = roles.map((role) => `ROLE_${role.name.toUpperCase()}`);
+    const authorities = user.roles.map(
+      (role) => `ROLE_${role.name.toUpperCase()}`
+    );
 
     // Send response with tokens
     res.status(200).send({
-      id: user.id,
+      id: user._id,
       username: user.email,
       email: user.email,
       roles: authorities,
@@ -130,9 +132,7 @@ exports.refreshAccessToken = async (req, res) => {
     }
 
     // Retrieve refresh token from database
-    const storedToken = await RefreshToken.findOne({
-      where: { token: refreshToken },
-    });
+    const storedToken = await RefreshToken.findOne({ token: refreshToken });
 
     if (!storedToken) {
       return res.status(403).json({ message: "Invalid refresh token!" });
@@ -140,7 +140,7 @@ exports.refreshAccessToken = async (req, res) => {
 
     // Check if the refresh token has expired
     if (storedToken.expiryDate.getTime() < Date.now()) {
-      await storedToken.destroy(); // Remove expired token
+      await storedToken.deleteOne(); // Remove expired token
       return res
         .status(403)
         .json({ message: "Refresh token expired. Please sign in again." });
@@ -156,15 +156,15 @@ exports.refreshAccessToken = async (req, res) => {
       allowInsecureKeySizes: true, // Only for development
     });
 
-    // Optional: Generate a new refresh token to prevent token reuse attacks
-    const newRefreshToken = await RefreshToken.create({
+    // Generate a new refresh token to prevent token reuse attacks
+    const newRefreshToken = new RefreshToken({
       token: generateRefreshTokenJWT({ id: decoded.id }),
-      userId: decoded.id,
+      user: decoded.id,
       expiryDate: new Date(Date.now() + config.jwtRefreshExpiration * 1000),
     });
 
-    // Remove old refresh token to enhance security
-    await storedToken.destroy();
+    await newRefreshToken.save();
+    await storedToken.deleteOne(); // Remove old refresh token
 
     // Send response with new tokens
     return res.json({
@@ -193,8 +193,8 @@ exports.logout = async (req, res) => {
     }
 
     // Find and remove the refresh token
-    const deletedToken = await RefreshToken.destroy({
-      where: { token: refreshToken },
+    const deletedToken = await RefreshToken.findOneAndDelete({
+      token: refreshToken,
     });
 
     if (!deletedToken) {

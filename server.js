@@ -1,62 +1,58 @@
 const express = require("express");
 const cors = require("cors");
+require("dotenv").config();
+const connectDB = require("./app/config/db.config.js"); // Import MongoDB connection
+const Role = require("./app/models/role.model"); // Import Role model
 
 const app = express();
 
 // CORS options
 const corsOptions = {
-  origin: "http://localhost:4200", // or '*' if you want to allow all origins
+  origin: "http://localhost:4200",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true, // Allow credentials (cookies or HTTP authentication)
+  credentials: true,
 };
 
 // Enable CORS with options
 app.use(cors(corsOptions));
 
-// parse requests of content-type - application/json
+// Parse JSON and URL-encoded data
 app.use(express.json());
-
-// parse requests of content-type - application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: true }));
 
-// simple route
+// Connect to MongoDB
+connectDB().then(() => initial()); // Connect & Initialize roles
+
+// Simple route
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to aymen's application." });
+  res.json({ message: "Welcome to Aymen's application." });
 });
 
-// setting routes
+// Setting routes
 require("./app/routes/auth.routes")(app);
 require("./app/routes/user.routes")(app);
+require("./app/routes/resume.routes")(app);
 
-// set port, listen for requests
+// Set port and start server
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}.`);
+  console.log(`🚀 Server is running on port ${PORT}.`);
 });
 
-// init the database
-const db = require("./app/models");
-const Role = db.role;
-
-db.sequelize.sync({ force: true }).then(() => {
-  console.log("Drop and Resync Db");
-  initial();
-});
-
-function initial() {
-  Role.create({
-    id: 1,
-    name: "user",
-  });
-
-  Role.create({
-    id: 2,
-    name: "moderator",
-  });
-
-  Role.create({
-    id: 3,
-    name: "admin",
-  });
+// Initialize roles collection in MongoDB
+async function initial() {
+  try {
+    const count = await Role.countDocuments();
+    if (count === 0) {
+      await Role.create({ name: "user" });
+      await Role.create({ name: "moderator" });
+      await Role.create({ name: "admin" });
+      console.log("✅ Roles initialized.");
+    } else {
+      console.log("✅ Roles already exist.");
+    }
+  } catch (err) {
+    console.error("❌ Error initializing roles:", err);
+  }
 }

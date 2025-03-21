@@ -1,25 +1,20 @@
-module.exports = (sequelize, Sequelize) => {
-  const RefreshToken = sequelize.define("refreshToken", {
-    token: {
-      type: Sequelize.STRING,
-      allowNull: false,
-      unique: true,
-    },
-    expiryDate: {
-      type: Sequelize.DATE,
-      allowNull: false,
-    },
-  });
+const mongoose = require("mongoose");
 
-  RefreshToken.associate = (models) => {
-    RefreshToken.belongsTo(models.user, {
-      foreignKey: "userId",
-      targetKey: "id",
-    });
-  };
-  RefreshToken.verifyExpiration = (token) => {
-    return token.expiryDate.getTime() < new Date().getTime();
-  };
+const RefreshTokenSchema = new mongoose.Schema({
+  token: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  expiryDate: {
+    type: Date,
+    required: true,
+  },
+});
 
-  return RefreshToken;
-};
+module.exports = mongoose.model("RefreshToken", RefreshTokenSchema);
