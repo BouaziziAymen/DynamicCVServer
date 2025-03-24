@@ -13,3 +13,17 @@ exports.postResume = async (req, res) => {
       .json({ message: "Failed to save resume" });
   }
 };
+
+// Get all resumes for a specific user
+exports.getResumesByUser = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const resumes = await Resume.find({ userId }).sort({ createdAt: -1 });
+    res.status(StatusCodes.OK).json(resumes);
+  } catch (err) {
+    console.error("Error fetching resumes:", err);
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: "Failed to fetch resumes" });
+  }
+};

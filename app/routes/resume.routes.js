@@ -11,4 +11,5 @@ module.exports = function (app) {
   });
 
   app.post("/api/resume", [authJwt.verifyToken], controller.postResume);
+  app.get("/api/resume", [authJwt.verifyToken], controller.getResumesByUser);
 };
