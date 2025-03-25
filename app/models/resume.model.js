@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const { user } = require(".");
 
 const SkillSchema = new mongoose.Schema({
   name: String,
@@ -7,6 +6,7 @@ const SkillSchema = new mongoose.Schema({
 });
 
 const WorkExperienceSchema = new mongoose.Schema({
+  isCurrent: Boolean,
   jobTitle: String,
   company: String,
   location: String,
@@ -14,6 +14,16 @@ const WorkExperienceSchema = new mongoose.Schema({
   endDate: Date,
   actions: [String],
   skills: [SkillSchema],
+  locationType: {
+    type: String,
+    enum: ["on_site", "remote", "hybrid"],
+    required: true,
+  },
+  contractType: {
+    type: String,
+    enum: ["full_time", "part_time", "freelance", "internship"],
+    required: true,
+  },
 });
 
 const SkillCategorySchema = new mongoose.Schema({
