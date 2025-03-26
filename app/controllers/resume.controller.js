@@ -1,5 +1,6 @@
 const { StatusCodes } = require("http-status-codes");
 const Resume = require("../models/resume.model");
+const { ObjectId } = require("mongodb");
 // Save resume to DB
 exports.postResume = async (req, res) => {
   try {
@@ -11,6 +12,38 @@ exports.postResume = async (req, res) => {
     res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
       .json({ message: "Failed to save resume" });
+  }
+};
+
+// ✅ PUT /resumes/:id (for full resume update)
+exports.updateResume = async (req, res) => {
+  try {
+    const resumeId = req.body._id;
+
+    if (!ObjectId.isValid(resumeId)) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Invalid resume ID" });
+    }
+
+    const updated = await Resume.findOneAndReplace(
+      { _id: resumeId, userId: req.userId }, // Ensure only the user's resume is updated
+      { ...req.body, userId: req.userId }, // Replace content, preserve userId
+      { new: true, upsert: false } // Do not create if missing
+    );
+
+    if (!updated) {
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json({ message: "Resume not found" });
+    }
+
+    res.status(StatusCodes.OK).json(updated);
+  } catch (err) {
+    console.error("Error updating resume:", err);
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: "Failed to update resume" });
   }
 };
 

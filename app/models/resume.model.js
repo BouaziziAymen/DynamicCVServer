@@ -26,6 +26,15 @@ const WorkExperienceSchema = new mongoose.Schema({
   },
 });
 
+const EducationExperienceSchema = new mongoose.Schema({
+  degreeTitle: String,
+  institution: String,
+  startDate: Date,
+  endDate: Date,
+  isCurrent: Boolean,
+  actions: [String],
+});
+
 const SkillCategorySchema = new mongoose.Schema({
   name: String,
   skills: [SkillSchema],
@@ -54,6 +63,7 @@ const ResumeSchema = new mongoose.Schema(
     introduction: mongoose.Schema.Types.Mixed,
     personalSummary: String,
     workExperiences: [WorkExperienceSchema],
+    educationExperiences: [EducationExperienceSchema],
     skillsCategories: [SkillCategorySchema],
   },
   { timestamps: true }
