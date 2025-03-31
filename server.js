@@ -33,6 +33,7 @@ app.get("/", (req, res) => {
 require("./app/routes/auth.routes")(app);
 require("./app/routes/user.routes")(app);
 require("./app/routes/resume.routes")(app);
+require("./app/routes/skills.routes")(app);
 
 // Set port and start server
 const PORT = process.env.PORT || 8080;
