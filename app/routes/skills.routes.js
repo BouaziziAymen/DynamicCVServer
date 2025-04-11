@@ -10,10 +10,14 @@ module.exports = function (app) {
     next();
   });
 
-  app.post("/api/skills/parse", [authJwt.verifyToken], controller.parseSkills);
+  app.post(
+    "/api/skills/parse",
+    [authJwt.verifyToken],
+    controller.extractSkillsFromText
+  );
   app.get(
     "/api/skills/autocomplete",
     [authJwt.verifyToken],
-    controller.getSkillSuggestions
+    controller.searchSkillsFromQuery
   );
 };
